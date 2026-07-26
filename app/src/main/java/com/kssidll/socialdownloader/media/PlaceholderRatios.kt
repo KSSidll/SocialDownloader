@@ -25,17 +25,17 @@ data class PlaceholderRatios(
 /** Measured off real notes: images arrive 3:4, videos 9:16. */
 private val xhsRatios = PlaceholderRatios(image = 3f / 4f, video = 9f / 16f)
 
-/**
- * Unverified. Neither downloader exists yet, so these are the platforms' documented portrait
- * formats rather than anything observed - worth measuring when those land.
- */
+// TODO: unproven. These are the platforms' documented portrait formats, not anything measured -
+//  unlike the XHS pair above, which came from real notes. Instagram in particular mixes 1:1, 4:5
+//  and 9:16 in a way a single guess can't cover, so measure real posts of each kind once the
+//  Instagram parser returns media. Wrong values only cost a bigger jump when the real size lands.
 private val instagramRatios = PlaceholderRatios(image = 4f / 5f, video = 9f / 16f)
 private val threadsRatios = PlaceholderRatios(image = 4f / 5f, video = 9f / 16f)
 
 val SocialMediaUrl.placeholderRatios: PlaceholderRatios
     get() = when (this) {
         is SocialMediaUrl.Xhs -> xhsRatios
-        is SocialMediaUrl.Instagram -> instagramRatios
+        is SocialMediaUrl.InstagramShortcode -> instagramRatios
         is SocialMediaUrl.Threads -> threadsRatios
         is SocialMediaUrl.Unrecognized -> PlaceholderRatios.Default
     }

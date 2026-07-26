@@ -7,7 +7,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.webkit.MimeTypeMap
-import com.kssidll.socialdownloader.network.MOBILE_USER_AGENT
 import com.kssidll.socialdownloader.network.httpClient
 import com.kssidll.socialdownloader.util.asHttps
 import kotlinx.coroutines.Dispatchers
@@ -35,9 +34,9 @@ suspend fun saveMedia(context: Context, url: String, expectVideo: Boolean): Uri?
         val secureUrl = url.asHttps()
         Log.d(TAG, "saveMedia: requesting $secureUrl")
 
+        // Headers are the interceptor's job - this layer stays unaware of which site the URL is for.
         val request = Request.Builder()
             .url(secureUrl)
-            .header("User-Agent", MOBILE_USER_AGENT)
             .build()
 
         try {

@@ -8,6 +8,9 @@ import androidx.compose.runtime.setValue
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.kssidll.socialdownloader.instagram.downloadInstagram
+import com.kssidll.socialdownloader.media.FetchFailure
+import com.kssidll.socialdownloader.media.FetchOutcome
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.media.PlaceholderRatios
 import com.kssidll.socialdownloader.media.placeholderRatios
@@ -18,7 +21,6 @@ import com.kssidll.socialdownloader.media.probeVideo
 import com.kssidll.socialdownloader.util.SocialMediaUrl
 import com.kssidll.socialdownloader.util.parseSocialMediaUrl
 import com.kssidll.socialdownloader.xhs.downloadXhs
-import com.kssidll.socialdownloader.xhs.filterXhs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -61,11 +63,11 @@ sealed interface DownloadState {
         /** A site we recognise but haven't written a downloader for yet. */
         data class Unsupported(val platform: String) : Failed
 
-        /** A URL, but not one we associate with any known site. */
+        /** A URL, but not one we associate with a kind of link we can act on. */
         data object Unrecognized : Failed
 
-        /** Reached the page but came away with nothing - covers fetch failures and empty parses. */
-        data object NothingFound : Failed
+        /** A downloader ran and came back with a reason rather than media. */
+        data class Fetch(val reason: FetchFailure) : Failed
     }
 }
 
@@ -197,10 +199,20 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
             val result = resolve(input)
             state = result
 
-            // Opening straight onto the picker is what keeps the copy-and-return flow hands-free.
-            isMediaDialogVisible = result is DownloadState.Found
+            val media = (result as? DownloadState.Found)?.media
+            startProbes(media)
 
-            startProbes((result as? DownloadState.Found)?.media)
+            // With one item there is nothing to choose between, so the picker would be a
+            // confirmation step and nothing more - save it and let the status area report. Anything
+            // else opens straight onto the picker, which is what keeps the copy-and-return flow
+            // hands-free.
+            val onlyUrl = media?.singleUrl
+            if (onlyUrl != null) {
+                Log.d(TAG, "startResolve: single item, saving it without the picker")
+                onDownloadRequested(setOf(onlyUrl))
+            } else {
+                isMediaDialogVisible = media != null
+            }
         }
     }
 
@@ -243,14 +255,19 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
 
         placeholderRatios = parsed?.placeholderRatios ?: PlaceholderRatios.Default
 
-        val media: Media? = when (parsed) {
+        // Each platform owns fetching, parsing and screening its own results, so all that lands
+        // here is an outcome to translate into something the status area can say.
+        val outcome = when (parsed) {
             null -> return DownloadState.Failed.NoLink
-            is SocialMediaUrl.Xhs -> filterXhs(downloadXhs(parsed.url))
-            is SocialMediaUrl.Instagram -> return DownloadState.Failed.Unsupported("Instagram")
+            is SocialMediaUrl.Xhs -> downloadXhs(parsed.url)
+            is SocialMediaUrl.InstagramShortcode -> downloadInstagram(parsed)
             is SocialMediaUrl.Threads -> return DownloadState.Failed.Unsupported("Threads")
             is SocialMediaUrl.Unrecognized -> return DownloadState.Failed.Unrecognized
         }
 
-        return if (media == null) DownloadState.Failed.NothingFound else DownloadState.Found(media)
+        return when (outcome) {
+            is FetchOutcome.Success -> DownloadState.Found(outcome.media)
+            is FetchOutcome.Failure -> DownloadState.Failed.Fetch(outcome.reason)
+        }
     }
 }

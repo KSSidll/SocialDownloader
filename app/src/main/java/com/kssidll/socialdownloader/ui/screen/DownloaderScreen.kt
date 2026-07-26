@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kssidll.socialdownloader.R
+import com.kssidll.socialdownloader.media.FetchFailure
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.ui.DefaultPreview
 import com.kssidll.socialdownloader.ui.FreshClipboardTextEffect
@@ -271,7 +272,15 @@ private fun statusText(state: DownloadState): String = when (state) {
     DownloadState.Failed.NoLink -> stringResource(R.string.status_no_link)
     is DownloadState.Failed.Unsupported -> stringResource(R.string.status_unsupported, state.platform)
     DownloadState.Failed.Unrecognized -> stringResource(R.string.status_unrecognized)
-    DownloadState.Failed.NothingFound -> stringResource(R.string.status_nothing_found)
+    is DownloadState.Failed.Fetch -> stringResource(
+        when (state.reason) {
+            FetchFailure.Unreachable -> R.string.status_unreachable
+            FetchFailure.AgeRestricted -> R.string.status_age_restricted
+            FetchFailure.LoginRequired -> R.string.status_login_required
+            FetchFailure.Gone -> R.string.status_gone
+            FetchFailure.NothingFound -> R.string.status_nothing_found
+        },
+    )
 }
 
 @Composable

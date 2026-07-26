@@ -3,7 +3,7 @@ package com.kssidll.socialdownloader.media
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.util.Log
-import com.kssidll.socialdownloader.network.MOBILE_USER_AGENT
+import com.kssidll.socialdownloader.network.requestHeadersForUrl
 import com.kssidll.socialdownloader.network.fetchContentLength
 import com.kssidll.socialdownloader.util.asHttps
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +73,10 @@ private suspend fun extractFrame(url: String): Pair<Bitmap?, Long?> = withContex
     val retriever = MediaMetadataRetriever()
 
     try {
-        retriever.setDataSource(url.asHttps(), mapOf("User-Agent" to MOBILE_USER_AGENT))
+        // Goes through the platform's media stack rather than OkHttp, so the interceptor never
+        // sees it - the same header table has to be applied by hand.
+        val secureUrl = url.asHttps()
+        retriever.setDataSource(secureUrl, requestHeadersForUrl(secureUrl))
 
         val durationMs = retriever
             .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)

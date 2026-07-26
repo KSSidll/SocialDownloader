@@ -12,6 +12,10 @@
     <string name="status_no_link">No link found in that text</string>
     <string name="status_unsupported">%1$s links aren\'t supported yet</string>
     <string name="status_unrecognized">That link isn\'t from a site we know</string>
+    <string name="status_unreachable">Couldn\'t reach that page</string>
+    <string name="status_age_restricted">That post is age restricted</string>
+    <string name="status_login_required">That post needs an account to view</string>
+    <string name="status_gone">That post no longer exists</string>
     <string name="status_nothing_found">Couldn\'t find any media on that page</string>
 
     <string name="media_dialog_hint">Tap to pick. With nothing picked, everything downloads.</string>

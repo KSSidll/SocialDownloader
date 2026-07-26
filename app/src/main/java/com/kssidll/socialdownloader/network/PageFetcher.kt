@@ -8,14 +8,24 @@ import okhttp3.Request
 
 private const val TAG = "PageFetcher"
 
-/** Follows redirects (e.g. xhslink.cn short links) and returns the final page body, or null on failure. */
-suspend fun fetchHtml(url: String): String? = withContext(Dispatchers.IO) {
+/**
+ * Follows redirects (e.g. xhslink.cn short links) and returns the final page body, or null on
+ * failure.
+ *
+ * [userAgent] is overridable because what a site returns can hinge on it - a page that only serves
+ * its full markup to one kind of client needs to be asked as that client.
+ */
+suspend fun fetchHtml(
+    url: String,
+    userAgent: String = MOBILE_USER_AGENT,
+): String? = withContext(Dispatchers.IO) {
     val secureUrl = url.asHttps()
     Log.d(TAG, "fetchHtml: requesting $secureUrl")
 
     val request = Request.Builder()
         .url(secureUrl)
-        .header("User-Agent", MOBILE_USER_AGENT)
+        .header("User-Agent", userAgent)
+        .header("Accept", BROWSER_ACCEPT)
         .build()
 
     try {
@@ -50,9 +60,10 @@ suspend fun fetchHtml(url: String): String? = withContext(Dispatchers.IO) {
 suspend fun fetchContentLength(url: String): Long? = withContext(Dispatchers.IO) {
     val secureUrl = url.asHttps()
 
+    // User-Agent and anything the host needs come from the interceptor; only the range is
+    // particular to this request.
     val request = Request.Builder()
         .url(secureUrl)
-        .header("User-Agent", MOBILE_USER_AGENT)
         .header("Range", "bytes=0-0")
         .build()
 
