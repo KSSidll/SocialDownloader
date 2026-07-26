@@ -1,3 +1,22 @@
 <resources>
     <string name="app_name">SocialDownloader</string>
+
+    <string name="input_placeholder">Paste a link</string>
+    <string name="action_find_media">Find media</string>
+
+    <string name="status_working">Looking for media…</string>
+    <string name="status_found">Found %1$s</string>
+    <string name="status_no_link">No link found in that text</string>
+    <string name="status_unsupported">%1$s links aren\'t supported yet</string>
+    <string name="status_unrecognized">That link isn\'t from a site we know</string>
+    <string name="status_nothing_found">Couldn\'t find any media on that page</string>
+
+    <plurals name="image_count">
+        <item quantity="one">%d image</item>
+        <item quantity="other">%d images</item>
+    </plurals>
+    <plurals name="video_count">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
 </resources>

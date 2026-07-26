@@ -57,7 +57,9 @@ fun Theme(
             dynamicColor = isInDynamicColor,
         )
 
-    MaterialTheme(colorScheme = colorScheme, typography = Typography) {
+    // MaterialExpressiveTheme is still internal in material3 1.4.0, so the expressive look comes
+    // from the shape scale in Shape.kt rather than from the expressive theme entry point.
+    MaterialTheme(colorScheme = colorScheme, shapes = Shapes, typography = Typography) {
         content()
     }
 }
