@@ -57,7 +57,7 @@ import coil3.compose.AsyncImagePainter
 import com.kssidll.socialdownloader.R
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.media.PlaceholderRatios
-import com.kssidll.socialdownloader.media.VideoProbe
+import com.kssidll.socialdownloader.media.MediaProbe
 import com.kssidll.socialdownloader.ui.DefaultPreview
 import com.kssidll.socialdownloader.ui.theme.Theme
 import java.util.Locale
@@ -71,21 +71,22 @@ private val minItemWidth = 120.dp
 /**
  * One selectable thing in the strip, flattened out of [Media]'s two lists.
  *
- * A video carries its [probe] - the frame, duration and size read off the file - which is null
- * while that read is still in flight.
+ * [probe] is what reading the file turned up - a frame, duration and size for a video, only a size
+ * for an image - and is null while that read is still in flight.
  */
 private data class MediaEntry(
     val url: String,
     val isVideo: Boolean,
     val position: Int,
-    val probe: VideoProbe? = null,
+    val probe: MediaProbe? = null,
 )
 
-private fun Media.entries(probes: Map<String, VideoProbe>): List<MediaEntry> =
-    images.mapIndexed { index, url -> MediaEntry(url, isVideo = false, position = index + 1) } +
-        videos.mapIndexed { index, url ->
-            MediaEntry(url, isVideo = true, position = index + 1, probe = probes[url])
-        }
+private fun Media.entries(probes: Map<String, MediaProbe>): List<MediaEntry> =
+    images.mapIndexed { index, url ->
+        MediaEntry(url, isVideo = false, position = index + 1, probe = probes[url])
+    } + videos.mapIndexed { index, url ->
+        MediaEntry(url, isVideo = true, position = index + 1, probe = probes[url])
+    }
 
 /**
  * Lets the user pick which of the found media to keep.
@@ -100,12 +101,12 @@ private fun Media.entries(probes: Map<String, VideoProbe>): List<MediaEntry> =
 @Composable
 fun MediaDialog(
     media: Media,
-    videoProbes: Map<String, VideoProbe>,
+    mediaProbes: Map<String, MediaProbe>,
     placeholderRatios: PlaceholderRatios,
     onDismiss: () -> Unit,
     onDownload: (Set<String>) -> Unit,
 ) {
-    val entries = remember(media, videoProbes) { media.entries(videoProbes) }
+    val entries = remember(media, mediaProbes) { media.entries(mediaProbes) }
     var selection by rememberSaveable { mutableStateOf(emptySet<String>()) }
 
     Dialog(
@@ -259,8 +260,11 @@ private fun MediaStripItem(
         // mistaken for a still.
         if (entry.isVideo && !isLoading) {
             PlayBadge(Modifier.align(Alignment.Center))
+        }
 
-            videoDetail(entry.probe)?.let { detail ->
+        // Arrives on its own schedule - the probe can land after the picture has already drawn.
+        if (!isLoading) {
+            mediaDetail(entry.probe)?.let { detail ->
                 DetailChip(
                     text = detail,
                     modifier = Modifier
@@ -347,7 +351,7 @@ private fun PlayBadge(modifier: Modifier = Modifier) {
     }
 }
 
-/** Whatever the probe could say about the video, e.g. "0:06 · 590 kB". */
+/** Whatever the probe could say, e.g. "0:06 · 590 kB" for a video or just "138 kB" for an image. */
 @Composable
 private fun DetailChip(text: String, modifier: Modifier = Modifier) {
     Surface(
@@ -365,7 +369,7 @@ private fun DetailChip(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun videoDetail(probe: VideoProbe?): String? {
+private fun mediaDetail(probe: MediaProbe?): String? {
     if (probe == null) return null
 
     val context = LocalContext.current
@@ -441,7 +445,7 @@ private fun MediaDialogPreview() {
                 ),
                 videos = listOf("https://sns-video.xhscdn.com/d.mp4"),
             ),
-            videoProbes = emptyMap(),
+            mediaProbes = emptyMap(),
             placeholderRatios = PlaceholderRatios.Default,
             onDismiss = {},
             onDownload = {},

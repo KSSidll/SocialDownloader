@@ -11,8 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.media.PlaceholderRatios
 import com.kssidll.socialdownloader.media.placeholderRatios
-import com.kssidll.socialdownloader.media.VideoProbe
+import com.kssidll.socialdownloader.media.MediaProbe
 import com.kssidll.socialdownloader.media.saveMedia
+import com.kssidll.socialdownloader.media.probeImage
 import com.kssidll.socialdownloader.media.probeVideo
 import com.kssidll.socialdownloader.util.SocialMediaUrl
 import com.kssidll.socialdownloader.util.parseSocialMediaUrl
@@ -84,10 +85,10 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
         private set
 
     /**
-     * Per video URL, what reading the file turned up. Absent means still in flight, which is what
-     * the picker shows a shimmer for; present but empty means the file gave nothing away.
+     * Per media URL, what reading the file turned up. Absent means still in flight, which is what
+     * the picker shows a video shimmer for; present but empty means the file gave nothing away.
      */
-    var videoProbes by mutableStateOf<Map<String, VideoProbe>>(emptyMap())
+    var mediaProbes by mutableStateOf<Map<String, MediaProbe>>(emptyMap())
         private set
 
     /** Shapes the picker falls back to for the platform the current result came from. */
@@ -212,21 +213,28 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
      */
     private fun startProbes(media: Media?) {
         probeJob?.cancel()
-        videoProbes = emptyMap()
+        mediaProbes = emptyMap()
 
-        val videos = media?.videos.orEmpty()
-        if (videos.isEmpty()) return
+        if (media == null || media.isEmpty) return
 
-        Log.d(TAG, "startProbes: probing ${videos.size} video(s)")
+        Log.d(TAG, "startProbes: probing ${media.images.size} image(s), ${media.videos.size} video(s)")
         probeJob = viewModelScope.launch {
-            videos.forEach { url ->
-                launch {
-                    // Recorded even when it comes back empty, so the picker can tell "gave up" from
-                    // "still working" and stop shimmering either way.
-                    videoProbes += url to probeVideo(url)
-                }
-            }
+            // Recorded even when they come back empty, so the picker can tell "gave up" from
+            // "still working" and stop shimmering either way.
+            media.videos.forEach { url -> launch { recordProbe(url, probeVideo(url)) } }
+            media.images.forEach { url -> launch { recordProbe(url, probeImage(url)) } }
         }
+    }
+
+    /**
+     * Folds one finished probe into the map.
+     *
+     * Deliberately a call taking the finished probe rather than `mediaProbes += url to probe(url)`:
+     * in that form Kotlin evaluates the map receiver *before* the suspending probe runs, so every
+     * concurrent probe starts from the same snapshot and all but the last to finish are dropped.
+     */
+    private fun recordProbe(url: String, probe: MediaProbe) {
+        mediaProbes = mediaProbes + (url to probe)
     }
 
     private suspend fun resolve(text: String): DownloadState {

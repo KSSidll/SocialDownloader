@@ -12,16 +12,18 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val TAG = "VideoProbe"
+private const val TAG = "MediaProbe"
 
 /** Ceiling on the decoded frame's height - a strip thumbnail never needs more than this. */
 private const val THUMBNAIL_MAX_HEIGHT = 1080
 
 /**
- * What could be learned about a video by looking at the file. Every field is optional: a source may
- * refuse range requests, omit Content-Length, or hand back something the platform can't decode.
+ * What could be learned about a piece of media by looking at the file itself. Every field is
+ * optional: a source may refuse range requests, omit Content-Length, or hand back something the
+ * platform can't decode. Images only ever fill in [sizeBytes] - Coil draws them, so there is
+ * nothing else worth reading off the file.
  */
-data class VideoProbe(
+data class MediaProbe(
     val thumbnail: Bitmap? = null,
     val durationMs: Long? = null,
     val sizeBytes: Long? = null,
@@ -37,7 +39,7 @@ data class VideoProbe(
  * mp4 URL, so this behaves the same whatever the source, where anything lifted out of a page's own
  * embedded JSON only ever works for the one site that emits that shape.
  */
-suspend fun probeVideo(url: String): VideoProbe = coroutineScope {
+suspend fun probeVideo(url: String): MediaProbe = coroutineScope {
     Log.d(TAG, "probeVideo: starting for $url")
 
     // The HEAD request and the frame decode don't depend on each other, so let them overlap.
@@ -45,12 +47,21 @@ suspend fun probeVideo(url: String): VideoProbe = coroutineScope {
     val frame = async { extractFrame(url) }
 
     val (thumbnail, durationMs) = frame.await()
-    VideoProbe(thumbnail = thumbnail, durationMs = durationMs, sizeBytes = size.await())
+    MediaProbe(thumbnail = thumbnail, durationMs = durationMs, sizeBytes = size.await())
         .also { Log.d(TAG, "probeVideo: finished for $url -> ${it.describe()}") }
 }
 
-private fun VideoProbe.describe(): String =
+private fun MediaProbe.describe(): String =
     "thumbnail=${thumbnail?.let { "${it.width}x${it.height}" }}, duration=$durationMs, size=$sizeBytes"
+
+/**
+ * Asks only how big an image is. There is no frame to pull and no duration to read - Coil is
+ * already fetching and drawing the picture itself, so this exists purely so an image can report its
+ * size the same way a video does.
+ */
+suspend fun probeImage(url: String): MediaProbe =
+    MediaProbe(sizeBytes = fetchContentLength(url))
+        .also { Log.d(TAG, "probeImage: finished for $url -> ${it.describe()}") }
 
 /**
  * Pulls the first keyframe and the duration in a single pass.

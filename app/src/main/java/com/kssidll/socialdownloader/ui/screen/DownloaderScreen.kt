@@ -65,7 +65,7 @@ fun DownloaderScreen(
     if (viewModel.isMediaDialogVisible && state is DownloadState.WithMedia) {
         MediaDialog(
             media = state.media,
-            videoProbes = viewModel.videoProbes,
+            mediaProbes = viewModel.mediaProbes,
             placeholderRatios = viewModel.placeholderRatios,
             onDismiss = viewModel::onMediaDialogDismiss,
             onDownload = viewModel::onDownloadRequested,
