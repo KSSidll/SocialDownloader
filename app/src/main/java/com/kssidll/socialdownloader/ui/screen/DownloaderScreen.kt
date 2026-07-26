@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,14 +50,26 @@ fun DownloaderScreen(
 ) {
     FreshClipboardTextEffect(onFreshText = viewModel::onPastedText)
 
+    val state = viewModel.state
+
     DownloaderScreen(
         input = viewModel.input,
-        state = viewModel.state,
+        state = state,
         canSubmit = viewModel.canSubmit,
         onInputChange = viewModel::onInputChange,
         onSubmit = viewModel::submit,
+        onFoundClick = viewModel::onFoundStatusClick,
         modifier = modifier,
     )
+
+    if (viewModel.isMediaDialogVisible && state is DownloadState.Found) {
+        MediaDialog(
+            media = state.media,
+            videoProbes = viewModel.videoProbes,
+            onDismiss = viewModel::onMediaDialogDismiss,
+            onDownload = viewModel::onDownloadRequested,
+        )
+    }
 }
 
 @Composable
@@ -66,6 +79,7 @@ private fun DownloaderScreen(
     canSubmit: Boolean,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onFoundClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -127,7 +141,7 @@ private fun DownloaderScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        StatusArea(state = state)
+        StatusArea(state = state, onFoundClick = onFoundClick)
     }
 }
 
@@ -136,7 +150,11 @@ private fun DownloaderScreen(
  * single card's visibility) keeps the exit of the old status readable while the new one arrives.
  */
 @Composable
-private fun StatusArea(state: DownloadState, modifier: Modifier = Modifier) {
+private fun StatusArea(
+    state: DownloadState,
+    onFoundClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     AnimatedContent(
         targetState = state,
         modifier = modifier.fillMaxWidth(),
@@ -145,13 +163,19 @@ private fun StatusArea(state: DownloadState, modifier: Modifier = Modifier) {
     ) { current ->
         when (current) {
             DownloadState.Idle -> Spacer(Modifier.fillMaxWidth())
+            // Only a result has somewhere to go when tapped - the rest are read-only reports.
+            is DownloadState.Found -> StatusCard(current, onClick = onFoundClick)
             else -> StatusCard(current)
         }
     }
 }
 
 @Composable
-private fun StatusCard(state: DownloadState, modifier: Modifier = Modifier) {
+private fun StatusCard(
+    state: DownloadState,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     val colorScheme = MaterialTheme.colorScheme
 
     val containerColor = when (state) {
@@ -165,10 +189,10 @@ private fun StatusCard(state: DownloadState, modifier: Modifier = Modifier) {
         else -> colorScheme.onSurfaceVariant
     }
 
-    // The media preview/save pass hangs off here - this becomes the surface that opens the carousel
-    // dialog once there is something to show for a Found state.
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = MaterialTheme.shapes.large,
         color = containerColor,
         contentColor = contentColor,
@@ -226,7 +250,7 @@ private fun statusText(state: DownloadState): String = when (state) {
 
 /** Renders a [Media] as e.g. "3 images · 1 video", leaving out whichever kind isn't present. */
 @Composable
-private fun mediaSummary(media: Media): String {
+internal fun mediaSummary(media: Media): String {
     val parts = mutableListOf<String>()
 
     if (media.images.isNotEmpty()) {
@@ -254,6 +278,7 @@ private fun DownloaderScreenIdlePreview() {
             canSubmit = false,
             onInputChange = {},
             onSubmit = {},
+            onFoundClick = {},
         )
     }
 }
@@ -268,6 +293,7 @@ private fun DownloaderScreenWorkingPreview() {
             canSubmit = false,
             onInputChange = {},
             onSubmit = {},
+            onFoundClick = {},
         )
     }
 }
@@ -282,6 +308,7 @@ private fun DownloaderScreenFoundPreview() {
             canSubmit = true,
             onInputChange = {},
             onSubmit = {},
+            onFoundClick = {},
         )
     }
 }
@@ -296,6 +323,7 @@ private fun DownloaderScreenFailedPreview() {
             canSubmit = true,
             onInputChange = {},
             onSubmit = {},
+            onFoundClick = {},
         )
     }
 }

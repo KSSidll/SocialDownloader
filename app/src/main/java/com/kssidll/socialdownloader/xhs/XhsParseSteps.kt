@@ -2,6 +2,7 @@ package com.kssidll.socialdownloader.xhs
 
 import android.util.Log
 import com.kssidll.socialdownloader.media.Media
+import com.kssidll.socialdownloader.util.asHttps
 import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -74,7 +75,10 @@ private fun collectCdnUrls(node: Any?, sink: MutableList<String>) {
     when (node) {
         is JSONObject -> node.keys().forEach { key -> collectCdnUrls(node.opt(key), sink) }
         is JSONArray -> (0 until node.length()).forEach { collectCdnUrls(node.opt(it), sink) }
-        is String -> if (node.startsWith("http") && cdnUrlPattern.containsMatchIn(node)) sink += node
+        // Normalised on the way in, so the distinct() downstream also collapses http/https pairs.
+        is String -> if (node.startsWith("http") && cdnUrlPattern.containsMatchIn(node)) {
+            sink += node.asHttps()
+        }
     }
 }
 
@@ -89,13 +93,14 @@ fun parseXhsMetaTags(html: String): Media? {
     val doc = Jsoup.parse(html)
 
     val images = doc.select("meta[property=og:image]")
-        .mapNotNull { it.attr("content").takeIf(String::isNotBlank) }
+        .mapNotNull { it.attr("content").takeIf(String::isNotBlank)?.asHttps() }
         .distinct()
     Log.d(TAG, "parseXhsMetaTags: found ${images.size} og:image tag(s)")
 
     val video = doc.select("meta[property=og:video], meta[property=og:video:url]")
         .map { it.attr("content") }
         .firstOrNull(String::isNotBlank)
+        ?.asHttps()
     Log.d(TAG, "parseXhsMetaTags: found og:video tag = $video")
 
     if (images.isEmpty() && video == null) {

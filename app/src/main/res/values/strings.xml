@@ -11,6 +11,14 @@
     <string name="status_unrecognized">That link isn\'t from a site we know</string>
     <string name="status_nothing_found">Couldn\'t find any media on that page</string>
 
+    <string name="media_dialog_hint">Tap to pick. With nothing picked, everything downloads.</string>
+    <string name="media_image_label">Image %1$d</string>
+    <string name="media_video_label">Video %1$d</string>
+    <string name="media_selected">Selected</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_download_all">Download all (%1$d)</string>
+    <string name="action_download_selected">Download (%1$d)</string>
+
     <plurals name="image_count">
         <item quantity="one">%d image</item>
         <item quantity="other">%d images</item>

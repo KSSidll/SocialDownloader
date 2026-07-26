@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kssidll.socialdownloader.media.Media
+import com.kssidll.socialdownloader.media.VideoProbe
+import com.kssidll.socialdownloader.media.probeVideo
 import com.kssidll.socialdownloader.util.SocialMediaUrl
 import com.kssidll.socialdownloader.util.parseSocialMediaUrl
 import com.kssidll.socialdownloader.xhs.downloadXhs
@@ -53,7 +55,23 @@ class DownloaderViewModel : ViewModel() {
     var state: DownloadState by mutableStateOf(DownloadState.Idle)
         private set
 
+    /**
+     * Whether the picker is open. Held here rather than in the composable so it survives rotation,
+     * and gated on [state] being [DownloadState.Found] by the screen, so a result going away closes
+     * the dialog without any extra bookkeeping.
+     */
+    var isMediaDialogVisible by mutableStateOf(false)
+        private set
+
+    /**
+     * Per video URL, what reading the file turned up. Absent means still in flight, which is what
+     * the picker shows a shimmer for; present but empty means the file gave nothing away.
+     */
+    var videoProbes by mutableStateOf<Map<String, VideoProbe>>(emptyMap())
+        private set
+
     private var resolveJob: Job? = null
+    private var probeJob: Job? = null
 
     val canSubmit: Boolean get() = input.isNotBlank() && state !is DownloadState.Working
 
@@ -98,11 +116,65 @@ class DownloaderViewModel : ViewModel() {
         return true
     }
 
+    /** Reopens the picker for a result the user dismissed without downloading. */
+    fun onFoundStatusClick() {
+        if (state is DownloadState.Found) isMediaDialogVisible = true
+    }
+
+    fun onMediaDialogDismiss() {
+        isMediaDialogVisible = false
+    }
+
+    /**
+     * Receives the media the user settled on - already resolved to a concrete set, so "nothing
+     * picked means all of it" has been applied by the time it lands here.
+     */
+    fun onDownloadRequested(urls: Set<String>) {
+        Log.d(TAG, "onDownloadRequested: ${urls.size} url(s) chosen")
+        urls.forEach { Log.d(TAG, "onDownloadRequested: $it") }
+
+        // Writing the files out is the next pass; this is where that pipeline hooks in.
+        isMediaDialogVisible = false
+    }
+
     private fun startResolve() {
         resolveJob?.cancel()
         resolveJob = viewModelScope.launch {
             state = DownloadState.Working
-            state = resolve(input)
+
+            val result = resolve(input)
+            state = result
+
+            // Opening straight onto the picker is what keeps the copy-and-return flow hands-free.
+            isMediaDialogVisible = result is DownloadState.Found
+
+            startProbes((result as? DownloadState.Found)?.media)
+        }
+    }
+
+    /**
+     * Fills in what no parse step can know - a poster frame, a duration, a byte size - by reading
+     * the video files themselves.
+     *
+     * Lives here rather than in the picker so results survive the dialog being dismissed and
+     * reopened, and so starting a new resolve is what clears them.
+     */
+    private fun startProbes(media: Media?) {
+        probeJob?.cancel()
+        videoProbes = emptyMap()
+
+        val videos = media?.videos.orEmpty()
+        if (videos.isEmpty()) return
+
+        Log.d(TAG, "startProbes: probing ${videos.size} video(s)")
+        probeJob = viewModelScope.launch {
+            videos.forEach { url ->
+                launch {
+                    // Recorded even when it comes back empty, so the picker can tell "gave up" from
+                    // "still working" and stop shimmering either way.
+                    videoProbes += url to probeVideo(url)
+                }
+            }
         }
     }
 
