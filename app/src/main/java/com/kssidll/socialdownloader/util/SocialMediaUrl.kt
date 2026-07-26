@@ -1,5 +1,9 @@
 package com.kssidll.socialdownloader.util
 
+import android.util.Log
+
+private const val TAG = "SocialMediaUrl"
+
 sealed class SocialMediaUrl {
     abstract val url: String
 
@@ -15,12 +19,22 @@ private val instagramRegex = Regex("""instagram\.com""")
 private val threadsRegex = Regex("""threads\.(net|com)""")
 
 fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
-    val url = urlRegex.find(text)?.value ?: return null
+    Log.d(TAG, "parseSocialMediaUrl: scanning text for a URL")
 
-    return when {
+    val url = urlRegex.find(text)?.value
+    if (url == null) {
+        Log.w(TAG, "parseSocialMediaUrl: no URL found in text")
+        return null
+    }
+    Log.d(TAG, "parseSocialMediaUrl: found URL $url")
+
+    val result = when {
         xhsRegex.containsMatchIn(url) -> SocialMediaUrl.Xhs(url)
         instagramRegex.containsMatchIn(url) -> SocialMediaUrl.Instagram(url)
         threadsRegex.containsMatchIn(url) -> SocialMediaUrl.Threads(url)
         else -> SocialMediaUrl.Unrecognized(url)
     }
+    Log.d(TAG, "parseSocialMediaUrl: classified as $result")
+
+    return result
 }
