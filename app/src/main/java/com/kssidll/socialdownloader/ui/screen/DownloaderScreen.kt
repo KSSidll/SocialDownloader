@@ -66,6 +66,7 @@ fun DownloaderScreen(
         MediaDialog(
             media = state.media,
             videoProbes = viewModel.videoProbes,
+            placeholderRatios = viewModel.placeholderRatios,
             onDismiss = viewModel::onMediaDialogDismiss,
             onDownload = viewModel::onDownloadRequested,
         )

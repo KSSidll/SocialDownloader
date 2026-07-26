@@ -9,6 +9,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kssidll.socialdownloader.media.Media
+import com.kssidll.socialdownloader.media.PlaceholderRatios
+import com.kssidll.socialdownloader.media.placeholderRatios
 import com.kssidll.socialdownloader.media.VideoProbe
 import com.kssidll.socialdownloader.media.saveMedia
 import com.kssidll.socialdownloader.media.probeVideo
@@ -86,6 +88,10 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
      * the picker shows a shimmer for; present but empty means the file gave nothing away.
      */
     var videoProbes by mutableStateOf<Map<String, VideoProbe>>(emptyMap())
+        private set
+
+    /** Shapes the picker falls back to for the platform the current result came from. */
+    var placeholderRatios by mutableStateOf(PlaceholderRatios.Default)
         private set
 
     private var resolveJob: Job? = null
@@ -226,6 +232,8 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
     private suspend fun resolve(text: String): DownloadState {
         val parsed = parseSocialMediaUrl(text)
         Log.d(TAG, "resolve: parsed as $parsed")
+
+        placeholderRatios = parsed?.placeholderRatios ?: PlaceholderRatios.Default
 
         val media: Media? = when (parsed) {
             null -> return DownloadState.Failed.NoLink

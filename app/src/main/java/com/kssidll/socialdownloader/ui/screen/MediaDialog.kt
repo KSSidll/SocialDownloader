@@ -56,6 +56,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.kssidll.socialdownloader.R
 import com.kssidll.socialdownloader.media.Media
+import com.kssidll.socialdownloader.media.PlaceholderRatios
 import com.kssidll.socialdownloader.media.VideoProbe
 import com.kssidll.socialdownloader.ui.DefaultPreview
 import com.kssidll.socialdownloader.ui.theme.Theme
@@ -66,13 +67,6 @@ private val mediaStripHeight = 260.dp
 
 /** Floor for a slot whose image never resolves a size at all, so a failure still occupies space. */
 private val minItemWidth = 120.dp
-
-/**
- * Shape for a slot with nothing real to measure yet - media still loading, or a video whose file
- * gave up no frame. Social posts are overwhelmingly portrait, so this is the guess that moves least
- * when a real size does arrive.
- */
-private const val PLACEHOLDER_ASPECT_RATIO = 3f / 4f
 
 /**
  * One selectable thing in the strip, flattened out of [Media]'s two lists.
@@ -107,6 +101,7 @@ private fun Media.entries(probes: Map<String, VideoProbe>): List<MediaEntry> =
 fun MediaDialog(
     media: Media,
     videoProbes: Map<String, VideoProbe>,
+    placeholderRatios: PlaceholderRatios,
     onDismiss: () -> Unit,
     onDownload: (Set<String>) -> Unit,
 ) {
@@ -153,6 +148,7 @@ fun MediaDialog(
                     items(entries, key = { it.url }) { entry ->
                         MediaStripItem(
                             entry = entry,
+                            placeholderRatio = placeholderRatios.ratioFor(entry.isVideo),
                             isSelected = entry.url in selection,
                             // With nothing picked everything is taken, so nothing looks excluded.
                             isDimmed = selection.isNotEmpty() && entry.url !in selection,
@@ -201,6 +197,7 @@ fun MediaDialog(
 @Composable
 private fun MediaStripItem(
     entry: MediaEntry,
+    placeholderRatio: Float,
     isSelected: Boolean,
     isDimmed: Boolean,
     onClick: () -> Unit,
@@ -226,7 +223,7 @@ private fun MediaStripItem(
         modifier = modifier
             .height(mediaStripHeight)
             .widthIn(min = minItemWidth)
-            .then(if (usesPlaceholderShape) Modifier.aspectRatio(PLACEHOLDER_ASPECT_RATIO) else Modifier)
+            .then(if (usesPlaceholderShape) Modifier.aspectRatio(placeholderRatio) else Modifier)
             .clip(MaterialTheme.shapes.extraLarge)
             .clickable(onClick = onClick)
             // Backs the media so a load that fails leaves a visible slot rather than a hole.
@@ -243,7 +240,7 @@ private fun MediaStripItem(
                 contentScale = ContentScale.FillHeight,
             )
 
-            entry.isVideo -> VideoPlaceholder(label = label)
+            entry.isVideo -> VideoPlaceholder(label = label, placeholderRatio = placeholderRatio)
 
             else -> AsyncImage(
                 model = entry.url,
@@ -387,11 +384,11 @@ private fun formatDuration(durationMs: Long): String {
 
 /** Stands in for a video whose file gave up no frame at all - it stays selectable regardless. */
 @Composable
-private fun VideoPlaceholder(label: String, modifier: Modifier = Modifier) {
+private fun VideoPlaceholder(label: String, placeholderRatio: Float, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .height(mediaStripHeight)
-            .aspectRatio(PLACEHOLDER_ASPECT_RATIO)
+            .aspectRatio(placeholderRatio)
             .background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
@@ -445,6 +442,7 @@ private fun MediaDialogPreview() {
                 videos = listOf("https://sns-video.xhscdn.com/d.mp4"),
             ),
             videoProbes = emptyMap(),
+            placeholderRatios = PlaceholderRatios.Default,
             onDismiss = {},
             onDownload = {},
         )
