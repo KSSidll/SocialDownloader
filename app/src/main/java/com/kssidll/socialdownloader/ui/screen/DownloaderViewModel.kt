@@ -5,10 +5,12 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.media.VideoProbe
+import com.kssidll.socialdownloader.media.saveMedia
 import com.kssidll.socialdownloader.media.probeVideo
 import com.kssidll.socialdownloader.util.SocialMediaUrl
 import com.kssidll.socialdownloader.util.parseSocialMediaUrl
@@ -19,19 +21,35 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "DownloaderViewModel"
 
-/**
- * What the status area under the input is currently reporting.
- *
- * [Found] carries the resolved [Media] so the preview/save pass can hang a dialog off it without
- * the state model having to change shape.
- */
+/** What the status area under the input is currently reporting. */
 @Immutable
 sealed interface DownloadState {
+    /**
+     * The states that still hold a result. Saving doesn't discard what was found, so the picker
+     * stays available throughout and afterwards - handy for grabbing the rest of a post on a
+     * second pass.
+     */
+    sealed interface WithMedia : DownloadState {
+        val media: Media
+    }
+
     data object Idle : DownloadState
 
     data object Working : DownloadState
 
-    data class Found(val media: Media) : DownloadState
+    data class Found(override val media: Media) : WithMedia
+
+    data class Saving(
+        override val media: Media,
+        val completed: Int,
+        val total: Int,
+    ) : WithMedia
+
+    data class Saved(
+        override val media: Media,
+        val saved: Int,
+        val failed: Int,
+    ) : WithMedia
 
     sealed interface Failed : DownloadState {
         /** The text had no http(s) URL in it at all. */
@@ -48,7 +66,7 @@ sealed interface DownloadState {
     }
 }
 
-class DownloaderViewModel : ViewModel() {
+class DownloaderViewModel(application: Application) : AndroidViewModel(application) {
     var input by mutableStateOf("")
         private set
 
@@ -72,6 +90,7 @@ class DownloaderViewModel : ViewModel() {
 
     private var resolveJob: Job? = null
     private var probeJob: Job? = null
+    private var saveJob: Job? = null
 
     val canSubmit: Boolean get() = input.isNotBlank() && state !is DownloadState.Working
 
@@ -118,7 +137,7 @@ class DownloaderViewModel : ViewModel() {
 
     /** Reopens the picker for a result the user dismissed without downloading. */
     fun onFoundStatusClick() {
-        if (state is DownloadState.Found) isMediaDialogVisible = true
+        if (state is DownloadState.WithMedia) isMediaDialogVisible = true
     }
 
     fun onMediaDialogDismiss() {
@@ -126,15 +145,41 @@ class DownloaderViewModel : ViewModel() {
     }
 
     /**
-     * Receives the media the user settled on - already resolved to a concrete set, so "nothing
-     * picked means all of it" has been applied by the time it lands here.
+     * Saves the media the user settled on - already a concrete set, so "nothing picked means all of
+     * it" has been applied by the time it lands here.
+     *
+     * Saves run one at a time rather than all at once: it keeps the progress count honest, and a
+     * post's worth of media isn't enough work for the parallelism to buy anything.
      */
     fun onDownloadRequested(urls: Set<String>) {
+        val media = (state as? DownloadState.WithMedia)?.media ?: return
         Log.d(TAG, "onDownloadRequested: ${urls.size} url(s) chosen")
-        urls.forEach { Log.d(TAG, "onDownloadRequested: $it") }
 
-        // Writing the files out is the next pass; this is where that pipeline hooks in.
         isMediaDialogVisible = false
+
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            val targets = urls.toList()
+            var saved = 0
+            var failed = 0
+
+            state = DownloadState.Saving(media, completed = 0, total = targets.size)
+
+            targets.forEachIndexed { index, url ->
+                val uri = saveMedia(
+                    context = getApplication(),
+                    url = url,
+                    // Only a hint - the response's own content type decides where it really goes.
+                    expectVideo = url in media.videos,
+                )
+
+                if (uri != null) saved++ else failed++
+                state = DownloadState.Saving(media, completed = index + 1, total = targets.size)
+            }
+
+            Log.d(TAG, "onDownloadRequested: finished with $saved saved, $failed failed")
+            state = DownloadState.Saved(media, saved = saved, failed = failed)
+        }
     }
 
     private fun startResolve() {

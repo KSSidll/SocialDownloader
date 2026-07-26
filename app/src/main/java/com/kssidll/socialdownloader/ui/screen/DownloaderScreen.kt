@@ -62,7 +62,7 @@ fun DownloaderScreen(
         modifier = modifier,
     )
 
-    if (viewModel.isMediaDialogVisible && state is DownloadState.Found) {
+    if (viewModel.isMediaDialogVisible && state is DownloadState.WithMedia) {
         MediaDialog(
             media = state.media,
             videoProbes = viewModel.videoProbes,
@@ -163,8 +163,9 @@ private fun StatusArea(
     ) { current ->
         when (current) {
             DownloadState.Idle -> Spacer(Modifier.fillMaxWidth())
-            // Only a result has somewhere to go when tapped - the rest are read-only reports.
-            is DownloadState.Found -> StatusCard(current, onClick = onFoundClick)
+            // Only a state still holding a result has somewhere to go when tapped - the rest are
+            // read-only reports.
+            is DownloadState.WithMedia -> StatusCard(current, onClick = onFoundClick)
             else -> StatusCard(current)
         }
     }
@@ -178,14 +179,21 @@ private fun StatusCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    val containerColor = when (state) {
-        is DownloadState.Found -> colorScheme.primaryContainer
-        is DownloadState.Failed -> colorScheme.errorContainer
+    // A save that lost items reports as a failure even though some of it worked - a partial result
+    // is the case worth noticing.
+    val isSetback = state is DownloadState.Failed ||
+        (state is DownloadState.Saved && state.failed > 0)
+    val isResult = state is DownloadState.Found ||
+        (state is DownloadState.Saved && state.failed == 0)
+
+    val containerColor = when {
+        isSetback -> colorScheme.errorContainer
+        isResult -> colorScheme.primaryContainer
         else -> colorScheme.surfaceContainerHigh
     }
-    val contentColor = when (state) {
-        is DownloadState.Found -> colorScheme.onPrimaryContainer
-        is DownloadState.Failed -> colorScheme.onErrorContainer
+    val contentColor = when {
+        isSetback -> colorScheme.onErrorContainer
+        isResult -> colorScheme.onPrimaryContainer
         else -> colorScheme.onSurfaceVariant
     }
 
@@ -217,7 +225,7 @@ private fun StatusIcon(state: DownloadState) {
     when (state) {
         DownloadState.Idle -> Unit
 
-        DownloadState.Working -> CircularProgressIndicator(
+        DownloadState.Working, is DownloadState.Saving -> CircularProgressIndicator(
             modifier = Modifier.size(20.dp),
             color = LocalContentColor.current,
             strokeWidth = 2.5.dp,
@@ -225,6 +233,14 @@ private fun StatusIcon(state: DownloadState) {
 
         is DownloadState.Found -> Icon(
             painter = painterResource(R.drawable.ic_check),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+
+        is DownloadState.Saved -> Icon(
+            painter = painterResource(
+                if (state.failed > 0) R.drawable.ic_error else R.drawable.ic_check,
+            ),
             contentDescription = null,
             modifier = Modifier.size(20.dp),
         )
@@ -242,11 +258,23 @@ private fun statusText(state: DownloadState): String = when (state) {
     DownloadState.Idle -> ""
     DownloadState.Working -> stringResource(R.string.status_working)
     is DownloadState.Found -> stringResource(R.string.status_found, mediaSummary(state.media))
+
+    is DownloadState.Saving ->
+        stringResource(R.string.status_saving, state.completed, state.total)
+
+    is DownloadState.Saved -> if (state.failed > 0) {
+        stringResource(R.string.status_saved_partial, state.saved, state.failed)
+    } else {
+        stringResource(R.string.status_saved, itemCount(state.saved))
+    }
     DownloadState.Failed.NoLink -> stringResource(R.string.status_no_link)
     is DownloadState.Failed.Unsupported -> stringResource(R.string.status_unsupported, state.platform)
     DownloadState.Failed.Unrecognized -> stringResource(R.string.status_unrecognized)
     DownloadState.Failed.NothingFound -> stringResource(R.string.status_nothing_found)
 }
+
+@Composable
+private fun itemCount(count: Int): String = pluralStringResource(R.plurals.item_count, count, count)
 
 /** Renders a [Media] as e.g. "3 images · 1 video", leaving out whichever kind isn't present. */
 @Composable

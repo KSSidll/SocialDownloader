@@ -6,6 +6,9 @@
 
     <string name="status_working">Looking for media…</string>
     <string name="status_found">Found %1$s</string>
+    <string name="status_saving">Saving %1$d of %2$d…</string>
+    <string name="status_saved">Saved %1$s to your gallery</string>
+    <string name="status_saved_partial">Saved %1$d, %2$d failed</string>
     <string name="status_no_link">No link found in that text</string>
     <string name="status_unsupported">%1$s links aren\'t supported yet</string>
     <string name="status_unrecognized">That link isn\'t from a site we know</string>
@@ -18,6 +21,11 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_download_all">Download all (%1$d)</string>
     <string name="action_download_selected">Download (%1$d)</string>
+
+    <plurals name="item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
 
     <plurals name="image_count">
         <item quantity="one">%d image</item>

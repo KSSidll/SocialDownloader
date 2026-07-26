@@ -4,21 +4,9 @@ import android.util.Log
 import com.kssidll.socialdownloader.util.asHttps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 
 private const val TAG = "PageFetcher"
-
-/**
- * Sites serve different (often stripped-down) markup to clients that don't look like a real
- * browser, and some CDNs turn media requests away on the same basis - so every request the app
- * makes, page or media, goes out behind this.
- */
-internal const val MOBILE_USER_AGENT =
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 " +
-        "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
-
-private val client = OkHttpClient()
 
 /** Follows redirects (e.g. xhslink.cn short links) and returns the final page body, or null on failure. */
 suspend fun fetchHtml(url: String): String? = withContext(Dispatchers.IO) {
@@ -31,7 +19,7 @@ suspend fun fetchHtml(url: String): String? = withContext(Dispatchers.IO) {
         .build()
 
     try {
-        client.newCall(request).execute().use { response ->
+        httpClient.newCall(request).execute().use { response ->
             Log.d(TAG, "fetchHtml: got HTTP ${response.code} for ${response.request.url}")
 
             if (!response.isSuccessful) {
@@ -69,7 +57,7 @@ suspend fun fetchContentLength(url: String): Long? = withContext(Dispatchers.IO)
         .build()
 
     try {
-        client.newCall(request).execute().use { response ->
+        httpClient.newCall(request).execute().use { response ->
             // "bytes 0-0/603660" - the total after the slash is the whole resource, whereas
             // Content-Length on a 206 is just the one byte we asked for.
             val fromRange = response.header("Content-Range")
