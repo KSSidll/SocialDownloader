@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.kssidll.socialdownloader.ui.theme.Theme
+import com.kssidll.socialdownloader.util.parseSocialMediaUrl
 
 const val REDNOTE_URL = """
 example http://xhslink.cn/o/example
@@ -34,8 +35,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ScreenContent(modifier: Modifier = Modifier) {
+    val parsed = parseSocialMediaUrl(REDNOTE_URL)
     Text(
-        text = REDNOTE_URL,
+        text = "$REDNOTE_URL\n\nParsed: $parsed",
         modifier = modifier
     )
 }
