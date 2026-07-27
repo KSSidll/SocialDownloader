@@ -25,6 +25,13 @@ data class PlaceholderRatios(
 /** Measured off real notes: images arrive 3:4, videos 9:16. */
 private val xhsRatios = PlaceholderRatios(image = 3f / 4f, video = 9f / 16f)
 
+/**
+ * Measured off a real post of each kind, the same way the XHS pair was: a photo post reported its
+ * images as 1440x2156, 1440x2164 and 1440x2200 - near enough 2:3 for all three - and a video post
+ * came back 576x1024.
+ */
+private val tiktokRatios = PlaceholderRatios(image = 2f / 3f, video = 9f / 16f)
+
 // TODO: unproven. These are the platforms' documented portrait formats, not anything measured -
 //  unlike the XHS pair above, which came from real notes. Instagram in particular mixes 1:1, 4:5
 //  and 9:16 in a way a single guess can't cover, so measure real posts of each kind once the
@@ -35,6 +42,7 @@ private val threadsRatios = PlaceholderRatios(image = 4f / 5f, video = 9f / 16f)
 val SocialMediaUrl.placeholderRatios: PlaceholderRatios
     get() = when (this) {
         is SocialMediaUrl.Xhs -> xhsRatios
+        is SocialMediaUrl.TikTok -> tiktokRatios
         is SocialMediaUrl.InstagramShortcode -> instagramRatios
         is SocialMediaUrl.Threads -> threadsRatios
         is SocialMediaUrl.Unrecognized -> PlaceholderRatios.Default

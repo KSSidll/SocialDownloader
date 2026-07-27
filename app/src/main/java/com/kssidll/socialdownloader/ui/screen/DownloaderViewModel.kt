@@ -18,6 +18,7 @@ import com.kssidll.socialdownloader.media.MediaProbe
 import com.kssidll.socialdownloader.media.saveMedia
 import com.kssidll.socialdownloader.media.probeImage
 import com.kssidll.socialdownloader.media.probeVideo
+import com.kssidll.socialdownloader.tiktok.downloadTikTok
 import com.kssidll.socialdownloader.util.SocialMediaUrl
 import com.kssidll.socialdownloader.util.parseSocialMediaUrl
 import com.kssidll.socialdownloader.xhs.downloadXhs
@@ -260,6 +261,7 @@ class DownloaderViewModel(application: Application) : AndroidViewModel(applicati
         val outcome = when (parsed) {
             null -> return DownloadState.Failed.NoLink
             is SocialMediaUrl.Xhs -> downloadXhs(parsed.url)
+            is SocialMediaUrl.TikTok -> downloadTikTok(parsed.url)
             is SocialMediaUrl.InstagramShortcode -> downloadInstagram(parsed)
             is SocialMediaUrl.Threads -> return DownloadState.Failed.Unsupported("Threads")
             is SocialMediaUrl.Unrecognized -> return DownloadState.Failed.Unrecognized

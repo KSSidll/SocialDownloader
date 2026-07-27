@@ -26,6 +26,16 @@ sealed class SocialMediaUrl {
         val shortcode: String,
     ) : SocialMediaUrl()
 
+    /**
+     * A TikTok post, video or photo - both live in the same id space, on the same page, behind the
+     * same payload, so nothing downstream has to care which it is until the media is in hand.
+     *
+     * A full link is rebuilt around the canonical form, dropping the handle and the share parameters
+     * the share sheet hangs off the end. A short link has no id in it to rebuild from and so keeps
+     * the form it arrived in - following the redirect is what resolves the post.
+     */
+    data class TikTok(override val url: String) : SocialMediaUrl()
+
     data class Threads(override val url: String) : SocialMediaUrl()
 
     data class Unrecognized(override val url: String) : SocialMediaUrl()
@@ -49,6 +59,27 @@ private val instagramShortcodeRegex =
  */
 private fun instagramCanonicalUrl(shortcode: String) = "https://www.instagram.com/p/$shortcode/"
 
+/**
+ * TikTok's share sheet hands out `vm.` and `vt.` short links and `tiktok.com/t/` ones. None of them
+ * carries the post id - only the redirect knows it - so these are matched to be claimed, not to be
+ * taken apart.
+ */
+private val tiktokShortRegex = Regex("""(?:vm|vt)\.tiktok\.com/|tiktok\.com/t/""")
+
+/**
+ * The full form: a handle, `video` or `photo`, then the numeric id. Which of the two path segments
+ * a link uses says nothing binding - the id alone decides what comes back, and a photo post answers
+ * under `/video/` just as readily.
+ */
+private val tiktokPostIdRegex = Regex("""tiktok\.com/@[\w.]+/(?:video|photo)/(\d+)""")
+
+/**
+ * `@i` is TikTok's own stand-in for an unnamed author: the post resolves through it whoever posted
+ * it, which is what lets the handle be dropped rather than carried along. Confirmed against both a
+ * photo post and a video post, under `/video/` for each.
+ */
+private fun tiktokCanonicalUrl(postId: String) = "https://www.tiktok.com/@i/video/$postId"
+
 fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
     Log.d(TAG, "parseSocialMediaUrl: scanning text for a URL")
 
@@ -60,9 +91,15 @@ fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
     Log.d(TAG, "parseSocialMediaUrl: found URL $url")
 
     val instagramShortcode = instagramShortcodeRegex.find(url)?.groupValues?.get(1)
+    val tiktokPostId = tiktokPostIdRegex.find(url)?.groupValues?.get(1)
 
     val result = when {
         xhsRegex.containsMatchIn(url) -> SocialMediaUrl.Xhs(url)
+
+        tiktokPostId != null -> SocialMediaUrl.TikTok(tiktokCanonicalUrl(tiktokPostId))
+
+        // Nothing to rebuild from, so it goes out as it came in and the redirect does the resolving.
+        tiktokShortRegex.containsMatchIn(url) -> SocialMediaUrl.TikTok(url)
 
         instagramShortcode != null -> SocialMediaUrl.InstagramShortcode(
             url = instagramCanonicalUrl(instagramShortcode),

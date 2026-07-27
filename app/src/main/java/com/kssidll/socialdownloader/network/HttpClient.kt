@@ -25,7 +25,12 @@ internal const val BROWSER_ACCEPT =
 /**
  * One client for the whole app, so page fetches, probes and downloads share a connection pool - and
  * so they all pick up the same per-host headers.
+ *
+ * Sharing the cookie jar is what makes the sharing matter: a page fetch and the download that
+ * follows it are one session, which is the only way TikTok's signed video URLs can be redeemed.
+ * See [SessionCookieJar].
  */
 internal val httpClient = OkHttpClient.Builder()
+    .cookieJar(sessionCookieJar)
     .addInterceptor(HostHeaderInterceptor())
     .build()
