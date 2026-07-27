@@ -69,6 +69,16 @@ private val mediaStripHeight = 260.dp
 private val minItemWidth = 120.dp
 
 /**
+ * How far an unpicked item is knocked back once something else has been picked.
+ *
+ * Deliberately light. The strip is where the media gets looked at in the first place, and picking
+ * through a post one item at a time means most of it is dimmed most of the time - a scrim heavy
+ * enough to settle the question on its own leaves nothing legible to decide on. The selected badge
+ * is what states the selection outright; this only has to keep the two groups apart.
+ */
+private const val dimmedAlpha = 0.18f
+
+/**
  * One selectable thing in the strip, flattened out of [Media]'s two lists.
  *
  * [probe] is what reading the file turned up - a frame, duration and size for a video, only a size
@@ -284,7 +294,7 @@ private fun MediaStripItem(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)),
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = dimmedAlpha)),
             )
         }
 
