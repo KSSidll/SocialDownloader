@@ -32,12 +32,19 @@ private val xhsRatios = PlaceholderRatios(image = 3f / 4f, video = 9f / 16f)
  */
 private val tiktokRatios = PlaceholderRatios(image = 2f / 3f, video = 9f / 16f)
 
-// TODO: unproven. These are the platforms' documented portrait formats, not anything measured -
+// TODO: unproven. These are the platform's documented portrait formats, not anything measured -
 //  unlike the XHS pair above, which came from real notes. Instagram in particular mixes 1:1, 4:5
 //  and 9:16 in a way a single guess can't cover, so measure real posts of each kind once the
 //  Instagram parser returns media. Wrong values only cost a bigger jump when the real size lands.
 private val instagramRatios = PlaceholderRatios(image = 4f / 5f, video = 9f / 16f)
-private val threadsRatios = PlaceholderRatios(image = 4f / 5f, video = 9f / 16f)
+
+/**
+ * Measured, but across a spread rather than onto a number: two real posts gave images at 2:3, 2:3,
+ * 3:2, 3:2 and 4:5, so no single guess is right for more than some of them and 4:5 is picked for
+ * sitting between the portrait ones. Both videos seen were 4:5 - which is why this pair doesn't
+ * repeat Instagram's 9:16, guessed above and measured here.
+ */
+private val threadsRatios = PlaceholderRatios(image = 4f / 5f, video = 4f / 5f)
 
 val SocialMediaUrl.placeholderRatios: PlaceholderRatios
     get() = when (this) {

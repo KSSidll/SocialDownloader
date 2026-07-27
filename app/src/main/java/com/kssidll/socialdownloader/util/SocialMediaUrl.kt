@@ -36,14 +36,34 @@ sealed class SocialMediaUrl {
      */
     data class TikTok(override val url: String) : SocialMediaUrl()
 
-    data class Threads(override val url: String) : SocialMediaUrl()
+    /**
+     * A Threads post, reduced to the shortcode every form of its link shares.
+     *
+     * Threads moved from threads.net to threads.com and still answers on both, under the
+     * handle-carrying `/@user/post/` form and the bare `/t/` one alike. They all land on the same
+     * page, so the shortcode is the only part of an incoming link worth keeping.
+     *
+     * Only post links are claimed, for the same reason as [InstagramShortcode]: profiles and the
+     * rest have their own shapes and would each need their own extraction, so they fall through as
+     * [Unrecognized] rather than being taken on here and failing somewhere less explicable.
+     */
+    data class Threads(
+        override val url: String,
+        val shortcode: String,
+    ) : SocialMediaUrl()
 
     data class Unrecognized(override val url: String) : SocialMediaUrl()
 }
 
 private val urlRegex = Regex("""https?://\S+""")
 private val xhsRegex = Regex("""(xhslink\.cn|xiaohongshu\.com)""")
-private val threadsRegex = Regex("""threads\.(net|com)""")
+
+/**
+ * Threads hangs share parameters - `xmt`, `slof` - off a link that is otherwise a handle, the word
+ * `post` and the shortcode. The `/t/` form is the same link with the handle left off.
+ */
+private val threadsShortcodeRegex =
+    Regex("""threads\.(?:net|com)/(?:@[\w.]+/post|t)/([A-Za-z0-9_-]+)""")
 
 /**
  * Instagram serves one post under several paths and hosts - `/p/`, `/reel/`, `/reels/` and `/tv/`,
@@ -80,6 +100,13 @@ private val tiktokPostIdRegex = Regex("""tiktok\.com/@[\w.]+/(?:video|photo)/(\d
  */
 private fun tiktokCanonicalUrl(postId: String) = "https://www.tiktok.com/@i/video/$postId"
 
+/**
+ * Rebuilt around `/t/`, which resolves a post without needing its handle - it redirects onto the
+ * canonical `/@user/post/` URL by itself. Same reasoning as Instagram's: nothing from the incoming
+ * link, share parameters included, rides along into the requests made later.
+ */
+private fun threadsCanonicalUrl(shortcode: String) = "https://www.threads.com/t/$shortcode"
+
 fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
     Log.d(TAG, "parseSocialMediaUrl: scanning text for a URL")
 
@@ -92,6 +119,7 @@ fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
 
     val instagramShortcode = instagramShortcodeRegex.find(url)?.groupValues?.get(1)
     val tiktokPostId = tiktokPostIdRegex.find(url)?.groupValues?.get(1)
+    val threadsShortcode = threadsShortcodeRegex.find(url)?.groupValues?.get(1)
 
     val result = when {
         xhsRegex.containsMatchIn(url) -> SocialMediaUrl.Xhs(url)
@@ -106,7 +134,10 @@ fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
             shortcode = instagramShortcode,
         )
 
-        threadsRegex.containsMatchIn(url) -> SocialMediaUrl.Threads(url)
+        threadsShortcode != null -> SocialMediaUrl.Threads(
+            url = threadsCanonicalUrl(threadsShortcode),
+            shortcode = threadsShortcode,
+        )
 
         else -> SocialMediaUrl.Unrecognized(url)
     }
