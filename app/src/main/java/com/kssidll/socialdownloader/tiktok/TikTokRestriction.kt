@@ -15,6 +15,20 @@ private const val STATUS_OK = 0
 private const val STATUS_NOT_FOUND = 10204
 
 /**
+ * The post exists but its content classification withholds it from a signed-out session. Confirmed
+ * against a real post - `vm.tiktok.com/ZN8edWQSY/` - which answers 200 with a fully rendered page
+ * whose detail scope is nothing but `{"statusCode": 10249, "statusMessage": "content classification
+ * unavailable", "extra_info": {}}`. No `itemInfo`, so there is no media to be talked out of.
+ *
+ * Reported as [FetchFailure.LoginRequired] rather than [FetchFailure.AgeRestricted] because logging
+ * in is what TikTok itself offers as the way through: the same page ships the copy for the gate it
+ * renders - `classifyV1AWeb_webAppDesktop_maskLayer_bodyDesc`, "This post may not be comfortable for
+ * some audiences. Log in to make the most of your experience." It names no age and states no bar to
+ * clear, so wording it as an age gate would tell the user something the page never said.
+ */
+private const val STATUS_CLASSIFICATION_GATED = 10249
+
+/**
  * Works out why a post page yielded nothing.
  *
  * TikTok answers 200 with a fully rendered page whatever the outcome, and puts the verdict in the
@@ -39,6 +53,8 @@ fun tiktokFailureOf(html: String): FetchFailure {
         STATUS_OK -> FetchFailure.NothingFound
 
         STATUS_NOT_FOUND -> FetchFailure.Gone
+
+        STATUS_CLASSIFICATION_GATED -> FetchFailure.LoginRequired
 
         // TODO: unproven. TikTok has codes for private and region-blocked posts too, but none has
         //  turned up here yet, and mapping numbers to reasons on the strength of a guess would put
