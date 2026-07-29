@@ -43,13 +43,17 @@ sealed class SocialMediaUrl {
      * handle-carrying `/@user/post/` form and the bare `/t/` one alike. They all land on the same
      * page, so the shortcode is the only part of an incoming link worth keeping.
      *
+     * [shortcode] is null for a `/share/` link, whose token is not the shortcode and cannot be
+     * turned into one without asking - the page it redirects onto is what names the post, so the
+     * code is recovered there rather than guessed at here.
+     *
      * Only post links are claimed, for the same reason as [InstagramShortcode]: profiles and the
      * rest have their own shapes and would each need their own extraction, so they fall through as
      * [Unrecognized] rather than being taken on here and failing somewhere less explicable.
      */
     data class Threads(
         override val url: String,
-        val shortcode: String,
+        val shortcode: String?,
     ) : SocialMediaUrl()
 
     data class Unrecognized(override val url: String) : SocialMediaUrl()
@@ -64,6 +68,22 @@ private val xhsRegex = Regex("""(xhslink\.cn|xiaohongshu\.com)""")
  */
 private val threadsShortcodeRegex =
     Regex("""threads\.(?:net|com)/(?:@[\w.]+/post|t)/([A-Za-z0-9_-]+)""")
+
+/**
+ * The shortcode in a Threads post URL, if it holds one.
+ *
+ * Public because a `/share/` link arrives without one, and the page it redirects onto states its
+ * canonical URL - this shape - in its head. Reading the code back out of that goes through here so
+ * what a post URL looks like stays written down once.
+ */
+fun threadsShortcodeIn(url: String): String? = threadsShortcodeRegex.find(url)?.groupValues?.get(1)
+
+/**
+ * The share sheet's other form: `/share/` and a token that is not the shortcode - the one this was
+ * written against, `/share/BAjJV_fcZw/`, redirects onto a post whose code is `DbWCJMODyEx`, and
+ * nothing relates the two. Matched to be claimed, not to be taken apart.
+ */
+private val threadsShareRegex = Regex("""threads\.(?:net|com)/share/([A-Za-z0-9_-]+)""")
 
 /**
  * Instagram serves one post under several paths and hosts - `/p/`, `/reel/`, `/reels/` and `/tv/`,
@@ -107,6 +127,13 @@ private fun tiktokCanonicalUrl(postId: String) = "https://www.tiktok.com/@i/vide
  */
 private fun threadsCanonicalUrl(shortcode: String) = "https://www.threads.com/t/$shortcode"
 
+/**
+ * A share link stripped back to its token. There is no canonical form to rebuild towards here - the
+ * token is all there is until the redirect is followed - so this only drops what the share sheet
+ * hangs off the end, for the same reason the other two rebuild.
+ */
+private fun threadsShareUrl(token: String) = "https://www.threads.com/share/$token/"
+
 fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
     Log.d(TAG, "parseSocialMediaUrl: scanning text for a URL")
 
@@ -119,7 +146,8 @@ fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
 
     val instagramShortcode = instagramShortcodeRegex.find(url)?.groupValues?.get(1)
     val tiktokPostId = tiktokPostIdRegex.find(url)?.groupValues?.get(1)
-    val threadsShortcode = threadsShortcodeRegex.find(url)?.groupValues?.get(1)
+    val threadsShortcode = threadsShortcodeIn(url)
+    val threadsShareToken = threadsShareRegex.find(url)?.groupValues?.get(1)
 
     val result = when {
         xhsRegex.containsMatchIn(url) -> SocialMediaUrl.Xhs(url)
@@ -137,6 +165,13 @@ fun parseSocialMediaUrl(text: CharSequence): SocialMediaUrl? {
         threadsShortcode != null -> SocialMediaUrl.Threads(
             url = threadsCanonicalUrl(threadsShortcode),
             shortcode = threadsShortcode,
+        )
+
+        // No code to carry, so it goes out near enough as it came in and the redirect does the
+        // resolving - the page it lands on is where the code comes from.
+        threadsShareToken != null -> SocialMediaUrl.Threads(
+            url = threadsShareUrl(threadsShareToken),
+            shortcode = null,
         )
 
         else -> SocialMediaUrl.Unrecognized(url)

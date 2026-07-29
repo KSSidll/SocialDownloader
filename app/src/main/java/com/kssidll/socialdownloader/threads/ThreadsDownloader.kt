@@ -15,11 +15,12 @@ private const val TAG = "ThreadsDownloader"
  *
  * Takes the shortcode as well as the HTML, unlike the other platforms': the richest step needs it
  * to tell the post's own media from the rest of the page's, and handing it to both steps is what
- * lets them sit in one list.
+ * lets them sit in one list. It can be null - a share link that the page then declined to name
+ * leaves the payload step with nothing to anchor on, and the meta tag step never wanted it.
  */
 private class ParseStep(
     val name: String,
-    val parse: (html: String, shortcode: String) -> Media?,
+    val parse: (html: String, shortcode: String?) -> Media?,
 )
 
 /**
@@ -39,7 +40,7 @@ private val parseSteps = listOf(
  * as well - no session to carry across, the way TikTok needs one.
  */
 suspend fun downloadThreads(link: SocialMediaUrl.Threads): FetchOutcome {
-    Log.d(TAG, "downloadThreads: starting for ${link.shortcode}")
+    Log.d(TAG, "downloadThreads: starting for ${link.url}")
 
     val html = fetchHtml(link.url)
     if (html == null) {
@@ -47,9 +48,14 @@ suspend fun downloadThreads(link: SocialMediaUrl.Threads): FetchOutcome {
         return FetchOutcome.Failure(FetchFailure.Unreachable)
     }
 
+    // A share link knows no code, and the redirect it was followed through is what settled which
+    // post this page is - so the page is asked, rather than the link that reached it.
+    val shortcode = link.shortcode ?: canonicalThreadsShortcode(html)
+    Log.d(TAG, "downloadThreads: anchoring on $shortcode")
+
     val parsed = parseSteps.firstNotNullOfOrNull { step ->
         Log.d(TAG, "downloadThreads: trying the ${step.name} step")
-        step.parse(html, link.shortcode)
+        step.parse(html, shortcode)
     }
 
     val media = filterThreads(parsed)?.deduplicated()

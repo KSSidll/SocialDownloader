@@ -3,6 +3,7 @@ package com.kssidll.socialdownloader.threads
 import android.util.Log
 import com.kssidll.socialdownloader.media.Media
 import com.kssidll.socialdownloader.util.asHttps
+import com.kssidll.socialdownloader.util.threadsShortcodeIn
 import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -24,7 +25,12 @@ private const val TAG = "ThreadsParser"
  * A carousel puts each item in `carousel_media`; a single-media post has none and is its own node,
  * so both collapse to "a list of nodes" and are handled the same way.
  */
-fun parseThreadsPayload(html: String, shortcode: String): Media? {
+fun parseThreadsPayload(html: String, shortcode: String?): Media? {
+    if (shortcode == null) {
+        Log.w(TAG, "parseThreadsPayload: no shortcode to anchor on, leaving this to the next step")
+        return null
+    }
+
     val post = findThreadsPost(html, shortcode)
     if (post == null) {
         Log.w(TAG, "parseThreadsPayload: no post carrying code $shortcode in ${html.length} chars")
@@ -97,6 +103,33 @@ private fun JSONObject.largestImageUrl(): String? = optJSONObject("image_version
  * The walk is recursive for the reason the XHS one is: the payload sits under generated
  * `require`/`__bbox` nesting that Meta reshuffles at will, and none of that is worth encoding here.
  */
+/**
+ * The post's own shortcode, read off a page that was reached without one - a `/share/` link carries
+ * a token instead, and only the post page it redirects onto names the post.
+ *
+ * Both `rel=canonical` and `og:url` carry the same canonical `/@user/post/` URL. Either will do;
+ * trying both costs nothing and leaves one still standing if Meta drops the other. `barcelona://
+ * media?shortcode=` is a third copy on the same page, left alone as the least conventional of them.
+ */
+fun canonicalThreadsShortcode(html: String): String? {
+    val head = Jsoup.parse(html)
+
+    val canonical = sequenceOf(
+        head.selectFirst("link[rel=canonical]")?.attr("href"),
+        head.selectFirst("meta[property=og:url]")?.attr("content"),
+    ).filterNotNull().firstOrNull { it.isNotBlank() }
+
+    if (canonical == null) {
+        Log.w(TAG, "canonicalThreadsShortcode: page states no canonical URL")
+        return null
+    }
+
+    val shortcode = threadsShortcodeIn(canonical)
+    Log.d(TAG, "canonicalThreadsShortcode: $canonical -> $shortcode")
+
+    return shortcode
+}
+
 private fun findThreadsPost(html: String, shortcode: String): JSONObject? {
     val blocks = Jsoup.parse(html).select("script[type=application/json]")
 
