@@ -60,7 +60,7 @@ sealed class SocialMediaUrl {
 }
 
 private val urlRegex = Regex("""https?://\S+""")
-private val xhsRegex = Regex("""(xhslink\.cn|xiaohongshu\.com)""")
+private val xhsRegex = Regex("""(xhslink|xiaohongshu)\.(cn|com)""")
 
 /**
  * Threads hangs share parameters - `xmt`, `slof` - off a link that is otherwise a handle, the word
