@@ -1,14 +1,14 @@
 [versions]
-kotlinx-collections-immutable = "0.5.1"
+kotlinx-collections-immutable = "0.5.2"
 kotlinx-coroutines = "1.11.0"
 androidx-core-ktx = "1.19.0"
 androidx-lifecycle = "2.11.0"
 androidx-activity-compose = "1.13.0"
-androidx-compose-bom = "2026.06.01"
-okhttp = "5.4.0"
-jsoup = "1.22.2"
-coil = "3.5.0"
-agp = "9.3.1"
+androidx-compose-bom = "2026.08.00"
+okhttp = "5.5.0"
+jsoup = "1.23.2"
+coil = "3.6.2"
+agp = "9.4.0"
 kotlin = "2.4.10"
 
 [libraries]
