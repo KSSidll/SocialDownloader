@@ -17,6 +17,15 @@ private const val TAG = "ThreadsRestriction"
 private val errorRootRegex = Regex("""Barcelona404ErrorRoot""")
 
 /**
+ * What an invalid or deleted share link redirects to: `/?error=invalid_post`, rendered as the
+ * generic Threads home shell rather than an error page of its own. Nothing in the markup names the
+ * post at all - no code, no canonical, `og:image` falling back to Threads' static app icon (see
+ * [filterThreads]) - so this string, embedded in the page's routing state, is the only thing that
+ * tells the redirect apart from an ordinary render gone wrong.
+ */
+private val invalidPostRegex = Regex(""""error":"invalid_post"""")
+
+/**
  * Works out why a post page yielded nothing.
  *
  * Threads answers 200 with a rendered page either way, so the markup is the only signal. Only
@@ -25,13 +34,14 @@ private val errorRootRegex = Regex("""Barcelona404ErrorRoot""")
  */
 fun threadsFailureOf(html: String): FetchFailure {
     val hasErrorRoot = errorRootRegex.containsMatchIn(html)
-    Log.d(TAG, "threadsFailureOf: errorRoot=$hasErrorRoot")
+    val isInvalidPost = invalidPostRegex.containsMatchIn(html)
+    Log.d(TAG, "threadsFailureOf: errorRoot=$hasErrorRoot, invalidPost=$isInvalidPost")
 
     // TODO: unproven as anything more specific than "the post didn't render". A private or
     //  login-gated post has never been seen here, and Threads may well put one under this same
     //  root - in which case "no longer exists" is the wrong thing to tell the user about it. Check
     //  against one before splitting this into branches on a guess.
-    if (hasErrorRoot) return FetchFailure.Gone
+    if (hasErrorRoot || isInvalidPost) return FetchFailure.Gone
 
     // No refusal, no error page, and nothing readable either - which is the parse steps' problem
     // rather than the post's, and shouldn't be dressed up as the post's.

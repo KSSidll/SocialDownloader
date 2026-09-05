@@ -207,12 +207,3 @@ fun parseThreadsMetaTags(html: String): Media? {
     Log.d(TAG, "parseThreadsMetaTags: found ${images.size} image(s)")
     return Media(images = images)
 }
-
-/**
- * Pass-through, for the same reason Instagram's and TikTok's are: the steps above read the post's
- * own media directly rather than scavenging the page, so nothing foreign gets as far as a filter.
- *
- * Which is exactly why the payload step is anchored on the code - see [findThreadsPost]. Screening
- * afterwards is not an option here; there would be nothing to screen on.
- */
-fun filterThreads(media: Media?): Media? = media
